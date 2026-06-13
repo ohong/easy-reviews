@@ -101,7 +101,7 @@ Two ways in: paste a Google Maps URL, or scan a business's QR (`/review?placeId=
 - **Framework:** Next.js (App Router). All Places + LLM calls go through server actions / route handlers — keys are never client-side.
 - **DB / storage:** Supabase (Postgres + RLS). No auth in MVP — review writes go through server routes keyed by an anonymous `session_id`.
 - **Hosting:** Vercel.
-- **UI:** Tailwind + shadcn/ui; Framer Motion for interview stepper transitions.
+- **UI:** Tailwind + shadcn/ui; Framer Motion for interview stepper transitions. **All frontend work must follow [design.md](design.md)** — the authoritative design system (palette, type, components, motion).
 - **LLM:** Anthropic Claude (Messages API or Agent SDK). Two prompt jobs: (a) question-set + review-summary generation, (b) review generation/regeneration.
 - **Maps:** Google Places API (New) — Text Search (resolution), Place Details (category + reviews), Autocomplete (business self-search).
 - **QR:** `qrcode` (server) or `qrcode.react` (client).
