@@ -6,7 +6,7 @@ A web app that turns a sub-60-second multiple-choice interview into a well-writt
 
 The defensibility thesis: this is *writing assistance, not fabrication*. The review only contains facts the user supplied, its tone matches the rating they gave (including critical), and a human posts it manually. That posture — especially supporting honest negative reviews — is what keeps it on the right side of Google's spam detection instead of in its crosshairs.
 
-**MVP boundary:** Google only; web only; no voice, no photos, no business accounts, no monetization. Architected to extend to Airbnb/ClassPass and voice later.
+**MVP boundary:** Google only; web only; no accounts/login, no voice, no photos, no business accounts, no monetization. Architected to extend to Airbnb/ClassPass and voice later.
 
 ---
 
@@ -35,7 +35,6 @@ Lead with the human relationship and ease — never "AI writes your reviews."
 4. **Interview (<60s).** First question is an overall **1–5 rating**; remaining questions branch on it (highlights vs. what went wrong vs. mixed). Mostly single-select, one multi-select "what stood out," plus one optional free-text "anything else?"
 5. **Generate.** Model writes one ~40–80 word review, grounded only in the answers, tone matched to the rating.
 6. **Edit & post.** Inline-editable textarea + **Regenerate**. Result screen shows a **suggested star count** (the user's rating). **Copy & open Google** copies the text and deep-links to Google's review dialog, where the user sets stars and pastes.
-7. **(Optional) Save.** Logged-in users get the review saved to their history ("your spots").
 
 ---
 
@@ -74,11 +73,10 @@ Lead with the human relationship and ease — never "AI writes your reviews."
 - **FR-4.3** **Copy & open Google:** copies `final_text` to clipboard and opens the Google write-review deep link in a new tab: `https://search.google.com/local/writereview?placeid=<PLACE_ID>`. *(The deep link cannot pre-fill text or stars — this is the only viable handoff.)*
 - **FR-4.4** Best-effort **posted** flag set when the user taps the CTA (used for funnel analytics; not a confirmed post).
 
-### FR-5 — Accounts & history (optional)
-- **FR-5.1** Anonymous users generate freely; **no login required**.
-- **FR-5.2** **Clerk** auth. Logging in saves each generation (business + answers + final text) to history.
-- **FR-5.3** History view: "your spots" — list of businesses reviewed, with re-access/edit of past text.
-- **FR-5.4** *Fast-follow:* claim anonymous generations (via `session_id` in localStorage) on sign-up.
+### FR-5 — Sessions (no auth in MVP)
+- **FR-5.1** **No login, no accounts.** Every user generates freely and anonymously.
+- **FR-5.2** Each browser gets an anonymous `session_id` (localStorage), attached to every generation server-side for funnel analytics and to enable future claim-on-signup.
+- **FR-5.3** *Post-MVP:* auth + a "your spots" history view (list of businesses reviewed, re-access/edit of past text), and claim of prior anonymous generations via `session_id`. Auth provider TBD when this lands.
 
 ### FR-6 — Business QR self-serve (in MVP)
 - **FR-6.1** Public, no-auth page where a business **searches for itself** (Places Autocomplete/Text Search) and selects the right listing.
@@ -101,7 +99,7 @@ These four together convert "AI wrote a review" (a spam signal) into "AI helped 
 
 ## Technical architecture
 - **Framework:** Next.js (App Router, TypeScript). Server actions / route handlers for all Places + LLM calls (keys never client-side).
-- **DB / storage / auth:** Supabase (Postgres + RLS); **Clerk** for auth.
+- **DB / storage:** Supabase (Postgres + RLS). **No auth in MVP** — all writes go through server routes keyed by anonymous `session_id`.
 - **Hosting:** Vercel.
 - **UI:** Tailwind + shadcn/ui; Framer Motion for the interview stepper transitions (the Outset/Listen Labs polish lives here).
 - **LLM:** Anthropic Claude (direct Messages API or Agent SDK). Two prompt jobs: (a) question-set + review-summary generation, (b) review generation/regeneration.
@@ -127,8 +125,8 @@ businesses
 reviews                                 -- one row per generation
   id uuid pk default gen_random_uuid()
   place_id text references businesses
-  user_id text                          -- Clerk id; null = anonymous
-  session_id text                       -- anon/local session, for later claim
+  user_id text                          -- reserved for post-MVP auth; always null in MVP
+  session_id text                       -- anon/local session; primary owner key in MVP, for later claim
   rating int                            -- 1–5
   answers jsonb                         -- interview Q/A
   generated_text text
@@ -136,9 +134,9 @@ reviews                                 -- one row per generation
   posted bool default false             -- best-effort funnel flag
   created_at timestamptz default now()
 ```
-**RLS:** `businesses` readable by all, writable by service role only. `reviews` readable/writable by owner (`user_id = auth.uid()`); anonymous inserts via server route keyed by `session_id`.
+**RLS:** `businesses` readable by all, writable by service role only. `reviews` are written and read **only** via server routes using the service role, scoped by `session_id` — no client-side row access in MVP (no auth to back RLS owner checks yet).
 
-**Env:** `ANTHROPIC_API_KEY`, `GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, Clerk keys.
+**Env:** `ANTHROPIC_API_KEY`, `GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
 ---
 
@@ -149,7 +147,7 @@ Self-contained tracks for concurrent agent/human execution. The seam between B a
 - **WS-B — AI core (services).** Place details/reviews fetch, review summary, question-set generation, review generation, regenerate, question caching.
 - **WS-C — Interview UI.** AskUserQuestion-style stepper, rating gate, branching, free-text, progress. *(Builds against the question contract below.)*
 - **WS-D — Result & handoff.** Editable textarea, suggested stars, clipboard, deep-link, posted flag.
-- **WS-E — Accounts & history.** Clerk wiring, history list, RLS, claim-on-signup (fast-follow).
+- **WS-E — Sessions.** Anonymous `session_id` issue/persist, server-route review writes keyed by it. *(Auth, history, and claim-on-signup are post-MVP.)*
 - **WS-F — Business QR generator.** Self-serve search → QR + link + download.
 - **WS-G — Design shell.** Tailwind/shadcn system, Framer transitions, landing + copy.
 
@@ -173,7 +171,7 @@ Self-contained tracks for concurrent agent/human execution. The seam between B a
 ---
 
 ## Out of scope (MVP)
-Voice / STT; photo upload; multi-platform (Airbnb, ClassPass, etc.); business accounts/dashboards/analytics for businesses; monetization; i18n beyond English-first; loyalty / "brownie points" as a built feature (it's positioning copy); confirmed post-verification (we can't read back what the user actually posted).
+Auth / accounts / login; user history ("your spots") and claim-on-signup; voice / STT; photo upload; multi-platform (Airbnb, ClassPass, etc.); business accounts/dashboards/analytics for businesses; monetization; i18n beyond English-first; loyalty / "brownie points" as a built feature (it's positioning copy); confirmed post-verification (we can't read back what the user actually posted).
 
 ## Open risks & sharp edges
 - **Pasted-URL resolution** is inherently lossy (hex feature IDs ≠ `place_id`, coords-only URLs, renamed places). Confidence: this *will* be the top bug source. Mitigation: confirmation card + manual search fallback. QR entry has none of this.
