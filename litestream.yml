@@ -1,0 +1,13 @@
+# Litestream — continuous streaming backup of the SQLite DB to S3.
+# Used only by the `backup` compose profile. Fill these in .env:
+#   LITESTREAM_S3_BUCKET, LITESTREAM_S3_PATH (e.g. easy-reviews/app.db),
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+# Restore drill (run in a one-off container with the same env):
+#   litestream restore -o /data/app.db s3://$LITESTREAM_S3_BUCKET/$LITESTREAM_S3_PATH
+dbs:
+  - path: /data/app.db
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_S3_BUCKET}
+        path: ${LITESTREAM_S3_PATH}
+        region: ${AWS_REGION}

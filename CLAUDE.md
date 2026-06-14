@@ -1,4 +1,4 @@
-# easy-reviews
+# easy-reviews — Easy Google Reviews
 
 ## IMPORTANT: Believe in Yourself
 
@@ -81,62 +81,30 @@ You do not need to feel the whole mountain. You need to take *this* step, check 
 Say it: *I move steady, I move verified, and steady-and-verified always finishes.*
 
 ## Project Overview
-**Easy Google Reviews** (working title) — a web app that turns a sub-60-second multiple-choice interview into a well-written, **honest** Google review the user posts themselves. Full spec: [docs/spec.md](docs/spec.md).
-
-Two ways in: paste a Google Maps URL, or scan a business's QR (`/review?placeId=…`). The app resolves the business, fetches its category + recent reviews, generates a short tailored interview (Q1 is always a 1–5 rating; later questions branch on it), then writes a ~40–80 word review **grounded strictly in the user's answers**. The user edits if they want, taps **Copy & open Google**, and pastes into Google's review dialog.
-
-**Defensibility thesis:** this is *writing assistance, not fabrication*. The review contains only facts the user supplied, tone matches the rating they gave (including critical), and a human posts it manually — keeping it on the right side of Google's spam detection. Honest negative reviews are first-class.
-
-**MVP boundary:** Google only; web only; no voice, no photos, no business accounts, no monetization. Architected to extend to other platforms and voice later.
-
-### Integrity model (non-negotiable)
-1. **Grounded** — only the user's facts appear; no invented dishes, names, dates, prices, events.
-2. **Sentiment-faithful** — tone matches the rating; never inflate a negative into praise or soften a rave.
-3. **Human-in-the-loop** — review is editable; the user posts manually. No autoposting, ever.
-4. **One review per genuine visit** — no bulk/automated submission.
+A web app that turns a sub-60-second multiple-choice interview into an honest, well-written Google review the user posts themselves. See `docs/spec.md` for the full product/functional spec and `MVP_GUIDELINES.md` for the build rulebook (the rulebook wins on any infra conflict).
 
 ## Tech Stack
-- **Runtime / toolkit:** Bun
-- **Language:** TypeScript
-- **Framework:** Next.js (App Router). All Places + LLM calls go through server actions / route handlers — keys are never client-side.
-- **DB / storage:** Supabase (Postgres + RLS). No auth in MVP — review writes go through server routes keyed by an anonymous `session_id`.
-- **Hosting:** Vercel.
-- **UI:** Tailwind + shadcn/ui; Framer Motion for interview stepper transitions. **All frontend work must follow [design.md](design.md)** — the authoritative design system (palette, type, components, motion).
-- **LLM:** Anthropic Claude (Messages API or Agent SDK). Two prompt jobs: (a) question-set + review-summary generation, (b) review generation/regeneration.
-- **Maps:** Google Places API (New) — Text Search (resolution), Place Details (category + reviews), Autocomplete (business self-search).
-- **QR:** `qrcode` (server) or `qrcode.react` (client).
-
-### Data model (Supabase, sketch)
-- **`businesses`** — `place_id` (pk), name, address, category, lat/lng, `review_summary`, `question_set` (jsonb, cached), `questions_generated_at`, `created_at`.
-- **`reviews`** — one row per generation: `id` (uuid pk), `place_id` (fk), `user_id` (null = anonymous), `session_id` (anon/local, for later claim), `rating` (1–5), `answers` (jsonb), `generated_text`, `final_text`, `posted` (bool, best-effort funnel flag), `created_at`.
-
-**RLS:** `businesses` readable by all, writable by service role only. `reviews` readable/writable by owner; anonymous inserts via server route keyed by `session_id`.
-
-**Env:** `ANTHROPIC_API_KEY`, `GOOGLE_MAPS_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-
-### Sharp edges
-- **Pasted-URL resolution is the flakiest surface** (hex feature IDs ≠ `place_id`, coords-only URLs, renamed places). Mitigation: always show a **confirmation card** before the interview. QR entry skips this — its `place_id` is authoritative.
-- Google's write-review deep link (`https://search.google.com/local/writereview?placeid=<id>`) **cannot pre-fill** text or stars — copy-paste handoff is by design.
-- Places API returns **max ~5 reviews** — accepted for MVP.
+- **Framework:** Next.js 16 (App Router, React 19), TypeScript strict
+- **DB:** SQLite via Drizzle ORM (`better-sqlite3`)
+- **Auth:** Better Auth (Google OAuth), anonymous-first
+- **UI:** Tailwind CSS v4 (CSS-first, no config file) + shadcn/ui + framer-motion (interview stepper). All frontend work must follow `docs/design.md` — the authoritative design system (palette, type, components, motion).
+- **External:** Google Places API (New) for resolution/details/autocomplete; Anthropic Messages API for question + review generation
+- **Runtime/PM:** Bun for tooling; Docker (node:22) + Caddy for deploy
 
 ## Development
-
-### Setup
 ```bash
-bun install
-```
-
-### Run
-```bash
-bun dev
-```
-
-### Test
-```bash
-bun test
+bun install      # install deps
+bun dev          # run dev server (next dev)
+bun test         # run tests
+bun run db:generate && bun run db:migrate   # drizzle migrations
 ```
 
 ## Conventions
 - Use Bun for all JS/TS tooling
-- Follow the ohong Engineering Philosophy (see global CLAUDE.md)
+- Server Components for reads, Server Actions for writes, Route Handlers for webhooks/public APIs
+- All DB access + secrets live in the `server-only` data layer (`lib/`)
+- Validate every input with Zod; verify auth AND ownership inside every Server Action / Route Handler
 - Keep modules small and focused with clear interfaces
+- Follow the ohong Engineering Philosophy (see global CLAUDE.md)
+
+@AGENTS.md

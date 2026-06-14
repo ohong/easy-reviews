@@ -1,0 +1,38 @@
+# Build context hygiene — keep the image small + never bake local state/secrets.
+node_modules
+.next
+.git
+.gitignore
+
+# Local SQLite database (prod DB lives in a Docker volume)
+data
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# Secrets (compose injects env at runtime via env_file)
+.env
+.env.*
+
+# Docs + design + memory + tooling not needed in the image
+*.md
+docs
+design
+memory
+out
+build
+next-env.d.ts
+.DS_Store
+.vscode
+.idea
+coverage
+*.tsbuildinfo
+
+# Deploy files themselves (compose, nginx, scripts live on the box, not in the image)
+deploy
+Dockerfile
+.dockerignore
+docker-compose.yml
+Caddyfile
+litestream.yml

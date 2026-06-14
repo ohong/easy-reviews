@@ -1,0 +1,4 @@
+# Stub the `server-only` import guard so unit tests can import server modules
+# (resolve/validations/ai) under the Bun test runner.
+[test]
+preload = ["./scripts/_preload.ts"]

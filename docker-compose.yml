@@ -1,0 +1,63 @@
+# Easy Google Reviews — single-box deploy (web + Caddy TLS, optional Litestream).
+#   cp .env.example .env   # fill GOOGLE_API_KEY + ANTHROPIC_API_KEY, set SITE_ADDRESS
+#   docker compose up -d --build
+#   docker compose --profile backup up -d   # also start S3 replication (needs creds)
+
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Authoritative overrides (win over .env): DB on the mounted volume.
+      NODE_ENV: production
+      DATABASE_URL: file:/data/app.db
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    volumes:
+      - dbdata:/data
+    expose:
+      - "3000" # internal only; Caddy is the public entrypoint
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      # Set SITE_ADDRESS=yourdomain.com in .env for automatic HTTPS.
+      # Default ":80" serves plain HTTP (fine for local / behind another LB).
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # persisted ACME certs
+      - caddy_config:/config
+
+  # Continuous SQLite backup to S3. Opt-in: `docker compose --profile backup up`.
+  # Requires litestream.yml + S3 bucket + AWS creds in .env (see README §Backups).
+  litestream:
+    image: litestream/litestream:0.3
+    restart: unless-stopped
+    profiles: ["backup"]
+    depends_on:
+      - web
+    env_file: .env
+    command: ["replicate", "-config", "/etc/litestream.yml"]
+    volumes:
+      - dbdata:/data
+      - ./litestream.yml:/etc/litestream.yml:ro
+
+volumes:
+  dbdata:
+  caddy_data:
+  caddy_config:

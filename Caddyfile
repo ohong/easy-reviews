@@ -1,0 +1,8 @@
+# Reverse proxy + automatic TLS in front of the Next.js server.
+# SITE_ADDRESS is supplied by docker-compose:
+#   - a bare domain (e.g. reviews.example.com) → Caddy provisions a Let's Encrypt cert
+#   - the default ":80" → plain HTTP (local dev / behind an external load balancer)
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
