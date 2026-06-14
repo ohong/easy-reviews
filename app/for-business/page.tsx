@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { QrCode } from "lucide-react";
+import { features } from "@/lib/env";
 import { BusinessQrStudio } from "./_components/business-qr-studio";
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default function ForBusinessPage() {
           </div>
         </div>
 
-        <BusinessQrStudio />
+        <BusinessQrStudio signsEnabled={features.imageGeneration} />
       </div>
     </main>
   );

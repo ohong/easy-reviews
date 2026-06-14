@@ -11,13 +11,20 @@ import {
   ExternalLink,
   Loader2,
   MapPin,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { BusinessSearch } from "@/app/start/_components/business-search";
 import type { PlaceSuggestion } from "@/lib/places";
-import { generateQrAction, type QrResult } from "../actions";
+import {
+  generateQrAction,
+  generateSignAction,
+  type QrResult,
+  type SignResult,
+} from "../actions";
 
 function slugify(name: string): string {
   return (
@@ -29,15 +36,18 @@ function slugify(name: string): string {
   );
 }
 
-export function BusinessQrStudio() {
+export function BusinessQrStudio({ signsEnabled }: { signsEnabled: boolean }) {
   const [picked, setPicked] = useState<PlaceSuggestion | null>(null);
   const [qr, setQr] = useState<QrResult | null>(null);
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
+  const [sign, setSign] = useState<SignResult | null>(null);
+  const [signPending, startSignTransition] = useTransition();
 
   function pick(s: PlaceSuggestion) {
     setPicked(s);
     setQr(null);
+    setSign(null);
     setCopied(false);
     startTransition(async () => {
       setQr(await generateQrAction(s.placeId));
@@ -47,7 +57,18 @@ export function BusinessQrStudio() {
   function reset() {
     setPicked(null);
     setQr(null);
+    setSign(null);
     setCopied(false);
+  }
+
+  function makeSign() {
+    if (!picked) return;
+    startSignTransition(async () => {
+      const res = await generateSignAction(picked.mainText);
+      setSign(res);
+      if (res.ok) toast.success("Here's a sign concept for you.");
+      else toast.error(res.error);
+    });
   }
 
   async function copyLink(url: string) {
@@ -187,6 +208,65 @@ export function BusinessQrStudio() {
               </Button>
             </div>
           </div>
+
+          {/* Counter-sign concept generator (fal.ai) */}
+          {signsEnabled && (
+            <div className="flex flex-col gap-3 border-t border-border/70 pt-5">
+              {signPending ? (
+                <div className="flex items-center justify-center gap-2 rounded-2xl bg-card py-16 shadow-soft ring-1 ring-border/70">
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Designing your sign… (~15s)
+                  </span>
+                </div>
+              ) : sign && sign.ok ? (
+                <Card className="items-center gap-4 p-6">
+                  <Image
+                    src={sign.png}
+                    alt={`Counter-sign concept for ${picked.mainText}`}
+                    width={384}
+                    height={512}
+                    unoptimized
+                    className="w-full max-w-xs rounded-xl ring-1 ring-foreground/10 shadow-soft"
+                  />
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      variant="sage"
+                      nativeButton={false}
+                      render={
+                        <a
+                          href={sign.png}
+                          download={`easy-reviews-${slug}-sign.png`}
+                        />
+                      }
+                    >
+                      <Download />
+                      Download PNG
+                    </Button>
+                    <Button variant="ghost" onClick={makeSign}>
+                      <RefreshCw />
+                      Regenerate
+                    </Button>
+                  </div>
+                  <p className="max-w-sm text-center text-xs text-muted-foreground text-pretty">
+                    A design concept to inspire your counter sign. The QR here is
+                    decorative — print the real one above so customers can scan it.
+                  </p>
+                </Card>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <Button variant="sage" onClick={makeSign}>
+                    <Sparkles />
+                    Get a sign
+                  </Button>
+                  <p className="max-w-sm text-xs text-muted-foreground text-pretty">
+                    See what a cute counter sign could look like for{" "}
+                    {picked.mainText} — designed in seconds.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

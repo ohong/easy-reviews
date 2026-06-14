@@ -20,6 +20,9 @@ const schema = z.object({
   ANTHROPIC_MODEL: z.string().min(1).default("claude-opus-4-8"),
   GOOGLE_API_KEY: z.string().min(1).optional(),
 
+  // Image generation (fal.ai — counter-sign concept previews)
+  FAL_KEY: z.string().min(1).optional(),
+
   // Persistence
   DATABASE_URL: z.string().min(1).default("file:./data/app.db"),
 
@@ -54,6 +57,8 @@ export const features = {
   places: Boolean(env.GOOGLE_API_KEY),
   /** Google login + saved history. */
   googleAuth: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+  /** fal.ai counter-sign concept generation. */
+  imageGeneration: Boolean(env.FAL_KEY),
 } as const;
 
 export function requireAnthropicKey(): string {
@@ -72,6 +77,15 @@ export function requireGoogleKey(): string {
     );
   }
   return env.GOOGLE_API_KEY;
+}
+
+export function requireFalKey(): string {
+  if (!env.FAL_KEY) {
+    throw new Error(
+      "FAL_KEY is not set. Add it to .env to enable counter-sign generation.",
+    );
+  }
+  return env.FAL_KEY;
 }
 
 /** Public app URL, normalized without a trailing slash. */
