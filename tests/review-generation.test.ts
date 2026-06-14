@@ -66,10 +66,10 @@ describe("AC-GEN — model output (integration)", () => {
     // expect(findForbiddenInventions(out.text, forbiddenInventions)).toEqual([]);
     // nightly: LLM-judge lists any entity not in {answers, business} → expect empty
   });
-  test.todo("AC-GEN-3: rating-2 output reads critical, names only supplied complaints");
-  test.todo("AC-GEN-4: rating-5 output is enthusiastic, not softened");
-  test.todo("AC-GEN-5: rating-3 output holds both the positive and the negative");
-  test.todo("AC-GEN-6: two answer sets do not produce structurally identical drafts");
-  test.todo("AC-GEN-7: regenerate yields a different draft still meeting GEN-1/-2/-3");
-  test.todo("AC-GEN-8: generation failure shows recoverable error, answers preserved, logged");
+  test.todo("AC-GEN-3: rating-2 output reads critical, names only supplied complaints", () => {});
+  test.todo("AC-GEN-4: rating-5 output is enthusiastic, not softened", () => {});
+  test.todo("AC-GEN-5: rating-3 output holds both the positive and the negative", () => {});
+  test.todo("AC-GEN-6: two answer sets do not produce structurally identical drafts", () => {});
+  test.todo("AC-GEN-7: regenerate yields a different draft still meeting GEN-1/-2/-3", () => {});
+  test.todo("AC-GEN-8: generation failure shows recoverable error, answers preserved, logged", () => {});
 });
